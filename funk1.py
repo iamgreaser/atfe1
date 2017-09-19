@@ -8,136 +8,23 @@ import subprocess
 import sys
 import time
 
-GLOBAL_VOL = 0.2
+from constants import *
+import instruments
 
-MIXFREQ = 48000
-SLICELEN = MIXFREQ//50
-BIGLEN = SLICELEN*16*7*2
-
-BASE_NOTES = [v+0 for v in [
-	54, 54, 54, 54,
-	54, 54, 54, 54,
-	54, 54, 59, 61,
-	54, 54, 59, 61,
-	#52, 52, 54, 54,
-	#56, 56, 57, 59,
-	#54, 54, 59, 61,
-	#54, 54, 59, 61,
+# 52 == E
+BASE_NOTE = 53
+BASE_NOTES = [v+BASE_NOTE for v in [
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 5, 7,
+	0, 0, 5, 7,
+	#-2, -2, 0, 0,
+	#2, 2, 3, 5,
+	#0, 0, 5, 7,
+	#0, 0, 5, 7,
 ]]
-BASE_NOTE = 52
 
 fp = subprocess.Popen(["play", "-ts16", "-r"+str(MIXFREQ), "-c1", "-"], stderr=subprocess.DEVNULL, stdin=subprocess.PIPE)
-
-class HihatDrum(object):
-	def __init__(self):
-		self.offs = 0
-		self.vol = 0.0
-		self.last_v = 0.0
-		self.playing = False
-
-	def play(self, vol):
-		self.offs = 0
-		self.vol = vol
-		self.playing = True
-
-	def mix(self, buf, sz):
-		if not self.playing:
-			return
-
-		for i in range(sz):
-			v = (random.random()*2.0-1.0)*(0.1**(14.0*self.offs/float(MIXFREQ)/self.vol))
-			self.last_v += (v-self.last_v)*0.3
-			v -= self.last_v
-			buf[i] += max(-1.0, min(1.0, v*1))*0.3*self.vol
-			self.offs += 1
-
-class KickDrum(object):
-	def __init__(self):
-		self.offs = 0
-		self.playing = False
-
-	def play(self):
-		self.offs = 0
-		self.playing = True
-
-	def mix(self, buf, sz):
-		if not self.playing:
-			return
-
-		for i in range(sz):
-			v1  = (random.random()*2.0-1.0)
-			v1 *= (0.1**(100.0*self.offs/float(MIXFREQ)))
-			v2  = math.sin(math.pi*2.0*80.0*self.offs/float(MIXFREQ))
-			v2 += math.sin(math.pi*2.0*70.0*self.offs/float(MIXFREQ))
-			v2 *= (0.1**(8.0*self.offs/float(MIXFREQ)))
-			v = v1 + v2
-			v *= 0.6
-			buf[i] += max(-1.0, min(1.0, v*1))*0.7
-			self.offs += 1
-
-class SnareDrum(object):
-	def __init__(self):
-		self.offs = 0
-		self.playing = False
-
-	def play(self):
-		self.offs = 0
-		self.playing = True
-
-	def mix(self, buf, sz):
-		if not self.playing:
-			return
-
-		for i in range(sz):
-			v1  = (random.random()*2.0-1.0)
-			v1 *= (0.1**(7.0*self.offs/float(MIXFREQ)))
-			v2  = math.sin(math.pi*2.0*100.0*self.offs/float(MIXFREQ))
-			v2 += math.sin(math.pi*2.0*110.0*self.offs/float(MIXFREQ))
-			v2 *= (0.1**(6.0*self.offs/float(MIXFREQ)))
-			v = v1 + v2
-			v *= 0.6
-			buf[i] += max(-1.0, min(1.0, v*1))*0.7
-			self.offs += 1
-
-class BassInstrument(object):
-	def __init__(self):
-		self.buffer = [0.0, 0.0]
-		self.offs = 0
-		self.last_v = 0.0
-		self.damp = 0.9
-		self.feedback = 1.0
-
-	def play(self, note):
-		freq = 110.0*(2.0**((note+BASE_NOTE-57-12)/12.0))
-		self.period = int(round(MIXFREQ/freq))
-		#self.buffer = [random.random()*2.0-1.0 for i in range(self.period)]
-		#self.buffer = [(float(i)*2.0-1.0)/self.period for i in range(self.period)]
-		AMP_P = 0.75
-		AMP_N = 0.25
-		self.buffer = [ 0.0
-			+ 0.7*(AMP_P if i < self.period//4 else -AMP_N)
-			+ 0.3*(random.random()*2.0-1.0)
-			for i in range(self.period)]
-		self.offs = 0
-		self.last_v = 0.0
-		self.damp = 0.7
-		self.feedback = 1.0
-
-	def stop(self):
-		self.damp = 0.9
-		self.feedback = 0.6
-
-	def mix(self, buf, sz):
-		idamp = (1.0-self.damp**(800.0/len(self.buffer)))
-		feedback = self.feedback**(800.0/len(self.buffer))
-		for i in range(sz):
-			v = self.buffer[self.offs]
-			self.last_v += (v - self.last_v)*idamp
-			self.buffer[self.offs] = self.last_v*feedback
-			v = self.last_v
-			self.offs += 1
-			self.offs %= len(self.buffer)
-			buf[i] += v*0.7
 
 TICK_STEPS = [0, 5, 9, 12]
 
@@ -210,9 +97,49 @@ SOURCE_4 = [
 	[  0, OFF,  -2, ...,   0, ..., OFF, ...],
 ]
 
+SANE_MINORS = [0, 5, 7, 12]
+MINOR_SCALE = [-3, -2, 0, 2, 3, 5, 7, 8, 10, 12, 14, 15]
+MAJOR_SCALE = [-3, -1, 0, 2, 4, 5, 7, 9, 11, 12, 14, 16]
+
+def src2():
+	if random.random() < 0.08:
+		return [OFF, ..., ..., ...]
+
+	r = random.random()
+	if r < 0.5:
+		if random.random() < 0.5:
+			return [random.choice(SANE_MINORS), ..., OFF, ...]
+		else:
+			return [random.choice(SANE_MINORS), OFF, ..., ...]
+	else:
+		j = random.randint(1, 2)
+		i = MINOR_SCALE.index(random.choice(SANE_MINORS))
+		if random.random() < 0.5:
+			return [MINOR_SCALE[i], ..., MINOR_SCALE[i+j], OFF]
+		else:
+			return [MINOR_SCALE[i+j], ..., MINOR_SCALE[i], OFF]
+
+def src3():
+	r = random.random()
+	if r < 0.3:
+		if random.random() < 0.5:
+			return src2() + [..., ...]
+		else:
+			return [..., ...] + src2()
+	else:
+		j = random.randint(1, 2)
+		i = MINOR_SCALE.index(random.choice(SANE_MINORS))
+		r = random.random()
+		jlist = [0, j, -j]
+		random.shuffle(jlist)
+		j1,j2,j3 = jlist
+		return [MINOR_SCALE[i+j1], OFF, MINOR_SCALE[i+j2], ..., MINOR_SCALE[i+j3], OFF]
+
 SOURCES = {
-	2: lambda : random.choice(SOURCE_2),
+	#2: lambda : random.choice(SOURCE_2),
+	2: src2,
 	3: lambda : random.choice(SOURCE_3),
+	#3: src3,
 	4: lambda : random.choice(SOURCE_4),
 }
 
@@ -220,10 +147,10 @@ PATTERN_PATTERN = [
 	#4, 4, 4, 4,
 	#4, 3, 2, 4, 3,
 	#4, 3, 3, 3, 3,
-	4, 3, 3, 4, 2,
+	#4, 3, 3, 4, 2,
 	#4, 4, 3, 3, 2,
 	#4, 4, 3, 2, 3,
-	#4, 2, 3, 2, 3, 2,
+	4, 2, 3, 2, 3, 2,
 	#4, 3, 3, 2, 2, 2,
 	#4, 2, 2, 4, 2, 2,
 ]
@@ -238,8 +165,11 @@ def gen_base_pat():
 		while True:
 			p = SOURCES[sz]()
 			puniqnote = [n for n in p if n != OFF and n != ...]
-			puniqnote = set(puniqnote)
+			puniqnote = list(set(puniqnote))
 			if len(puniqnote) > 1: continue
+			if len(puniqnote) != 0:
+				if puniqnote[0] not in [0, 5, 7, 12]: continue
+
 			if pat or pat_starts_with_base(p): break
 		pat += p
 	assert len(pat) == 32
@@ -290,10 +220,10 @@ patAp = patA
 patB = patA
 patC = patA
 
-bass = BassInstrument()
-d_kick = KickDrum()
-d_snare = SnareDrum()
-d_hihat = HihatDrum()
+bass = instruments.BassInstrument()
+d_kick = instruments.KickDrum()
+d_snare = instruments.SnareDrum()
+d_hihat = instruments.HihatDrum()
 gtick = 0
 pat = None
 
@@ -359,7 +289,7 @@ while True:
 			if n == OFF:
 				bass.stop()
 			elif n != ...:
-				bass.play(n)
+				bass.play(BASE_NOTE+n)
 				#if n == 0: d_kick.play()
 
 	if True:
