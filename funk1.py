@@ -14,7 +14,7 @@ MIXFREQ = 48000
 SLICELEN = MIXFREQ//50
 BIGLEN = SLICELEN*16*7*2
 
-BASE_NOTES = [v+-2 for v in [
+BASE_NOTES = [v+0 for v in [
 	54, 54, 54, 54,
 	54, 54, 54, 54,
 	54, 54, 59, 61,
@@ -211,9 +211,9 @@ SOURCE_4 = [
 ]
 
 SOURCES = {
-	2: SOURCE_2,
-	3: SOURCE_3,
-	4: SOURCE_4,
+	2: lambda : random.choice(SOURCE_2),
+	3: lambda : random.choice(SOURCE_3),
+	4: lambda : random.choice(SOURCE_4),
 }
 
 PATTERN_PATTERN = [
@@ -236,7 +236,7 @@ def gen_base_pat():
 	pat = []
 	for sz in PATTERN_PATTERN:
 		while True:
-			p = random.choice(SOURCES[sz])
+			p = SOURCES[sz]()
 			puniqnote = [n for n in p if n != OFF and n != ...]
 			puniqnote = set(puniqnote)
 			if len(puniqnote) > 1: continue
@@ -274,7 +274,7 @@ def mutate_pat(pat, min_idx=0, max_idx=None):
 	sz = PATTERN_PATTERN[idx]
 	lpat = pat[offs*2:(offs+sz)*2]
 	while True:
-		pat = pat[:offs*2] + random.choice(SOURCES[sz]) + pat[(offs+sz)*2:]
+		pat = pat[:offs*2] + SOURCES[sz]() + pat[(offs+sz)*2:]
 		if pat_starts_with_base(pat):
 			break
 
