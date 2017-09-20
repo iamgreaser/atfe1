@@ -12,7 +12,8 @@ from constants import *
 import instruments
 
 # 52 == E
-BASE_NOTE = 53
+BASE_NOTE = random.randint(50, 62)
+print("Base note: %d" % (BASE_NOTE,))
 BASE_NOTES = [v+BASE_NOTE for v in [
 	0, 0, 0, 0,
 	0, 0, 0, 0,
@@ -148,9 +149,9 @@ PATTERN_PATTERN = [
 	#4, 3, 2, 4, 3,
 	#4, 3, 3, 3, 3,
 	#4, 3, 3, 4, 2,
-	#4, 4, 3, 3, 2,
+	4, 4, 3, 3, 2,
 	#4, 4, 3, 2, 3,
-	4, 2, 3, 2, 3, 2,
+	#4, 2, 3, 2, 3, 2,
 	#4, 3, 3, 2, 2, 2,
 	#4, 2, 2, 4, 2, 2,
 ]
@@ -297,6 +298,8 @@ while True:
 		if row%8 in [0, 2, 6] and tick == 0: d_kick.play()
 		if row%8 in [3, 4] and tick == TICK_STEPS[2]: d_kick.play()
 		if row%4 == 2 and tick == 0: d_snare.play()
+		#elif (row%(32*2)) in [32*2-2, 32*2-1] and tick in [0, TICK_STEPS[2]]: d_snare.play()
+		elif True and (row%(32*2)) in [32*2-2, 32*2-1] and tick in [0, TICK_STEPS[2]]: d_snare.play()
 	else:
 		if tick == TICK_STEPS[0] and ((row%8)*2+0) in PATTERN_ACCUM[0::2]: d_kick.play()
 		if tick == TICK_STEPS[2] and ((row%8)*2+1) in PATTERN_ACCUM[0::2]: d_kick.play()

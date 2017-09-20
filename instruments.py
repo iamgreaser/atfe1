@@ -117,3 +117,30 @@ class BassInstrument(object):
 			self.offs %= len(self.buffer)
 			buf[i] += v*0.7
 
+
+class ChordInstrument(object):
+	def __init__(self):
+		self.offs = [random.random() for i in range(4)]
+		self.freqs = [0.0 for i in range(4)]
+		self.damp = 0.9
+
+	def play(self, notes):
+		#notes = [0.0
+		# TODO!
+		self.freq = 110.0*(2.0**((note-57-12)/12.0)) / MIXFREQ
+		self.offs = [random.random() for i in range(4)]
+		self.damp = 0.4
+
+	def stop(self):
+		self.damp = 0.9
+
+	def mix(self, buf, sz):
+		idamp = (1.0-self.damp**(800.0/len(self.buffer)))
+
+		for i in range(sz):
+			# TODO!
+			v = 0.0
+			self.offs[0] += self.freqs[0]
+			self.offs[0] %= len(self.buffer)
+			buf[i] += v*0.7
+
